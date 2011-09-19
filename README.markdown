@@ -4,15 +4,24 @@
 
 sinatra-enotify is simple exception notification extension module to sinatra.
 
-## Usage
+## Requirements:
+
+Optional redis exception cache added in __0.0.2__ requires
+`redis` and `yajl-ruby` gems. These are not defined as dependency of
+`sinatra-enotify` to leave the plain version available.
+
+## Usage:
 
 Register the extension in sinatra:
 
     Sinatra::register Sinatra::ENotify
 
-This will register two helper functions `configure_enotify` and `enotify`.
+This will register three helper functions `configure_enotify`, `enotify`
+and `ecache_cleanup`.
 
-### `enotify` configuration:
+The `ecache_cleanup` is only relevant for enabled redis exception cache.
+
+### Configuration:
 
 Default configuration for the `enotify` function is to output to _STDERR_.
 For `enotify` configuration use `configure_enotify` function.
@@ -38,6 +47,33 @@ To completely disable notification either via mail or to _STDERR_:
     configure_enotify({:ignore => true})
 
 To return to previous configuration just set `:ignore` back to false.
+
+#### Configure redis exception cache:
+
+New in version __0.0.2__: It is possible to configure redis exception cache in
+order to report the same exceptions only once per defined time period at most.
+
+The following example contains default values therefore all of them are optional:
+
+    configure_enotify({
+      :redis => {
+        :host   => '127.0.0.1',
+        :port   => 6379,
+        :dbid   => 0,
+        :expire => 3600,
+        :limit  => 100,
+      },
+    })
+
+  + options `:host`, `:port` and `:dbid` do not need any explanation
+  + `:expire` specifies the time period in seconds for which the data
+  in the exception cache are kept as valid
+    + this is the minimal period between the two reports of the same exceptions
+  (with the same trace)
+  + `:limit` limits the number of the most recent exceptions with non-empty
+  GET/POST data to be included in the notification
+
+To disable the redis exception cache just set the `:redis` back to `nil`.
 
 ### Include enotify in your code
 

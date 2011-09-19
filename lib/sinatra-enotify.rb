@@ -1,6 +1,8 @@
 #encoding:utf-8
 require 'net/smtp'
 
+require 'sinatra-enotify/format'
+
 module Sinatra
 
 	module ENotify
@@ -21,6 +23,7 @@ module Sinatra
 		#   :from    - source email address, e.g. www@myapp.mydomain.com
 		#   :rcpt    - recipient email address (or array of addresses)
 		#   :prefix  - subject prefix, e.g. '[MyApp]'
+		#   :redis   - enable redis caching mechanism
 		# Empty opts hash sets sets both :ignore and :notify to false
 		def configure_enotify opts={}
 			o = defined?(@@_ENOTIFY) ? @@_ENOTIFY : {}
@@ -59,58 +62,63 @@ module Sinatra
 						unless o[opt]
 				}
 			end
+			if opts.key? :redis
+				if opts[:redis]
+					require 'sinatra-enotify/exception_cache'
+					throw 'Hash expected for defined :redis option!' \
+						unless opts[:redis].kind_of? Hash
+					@@_REDIS = ExceptionCache.new opts[:redis]
+				else
+					@@_REDIS = nil
+				end
+			end
 			@@_ENOTIFY = o
+		end
+
+		def ecache_cleanup
+			@@_REDIS.cleanup if defined? @@_REDIS && @@_REDIS
 		end
 
 		# Report exception e.
 		def enotify e
+			throw 'Sinatra::ENotify not configured!' unless defined? @@_ENOTIFY
 			return if @@_ENOTIFY[:ignore]
 			basedir_length = @@_ENOTIFY[:basedir].length + 1 if @@_ENOTIFY[:basedir]
-			trace = '  ' + e.backtrace.collect{|ln|
-				@@_ENOTIFY[:basedir] ?
-					ln.start_with?(@@_ENOTIFY[:basedir]) ?
-						ln[basedir_length..-1] :
-						ln :
-					ln
-			}.join("\n  ")
-			tstamp = Time.now.strftime '%Y-%m-%d %H:%M:%S.%L'
-			get_data, post_data = nil, nil
-			if request.GET.empty?
-				get_data = 'No GET data.'
-			else
-				get_data, maxlen = "GET data:", 0
-				request.GET.each_key{|k| maxlen = k.length + 1 if k.length >= maxlen }
-				request.GET.sort_by{|k, v| k.to_s }.each{|key, val|
-					get_data += sprintf "\n  %-#{maxlen}s= %s", key, val.inspect
-				}
+			time, report, err, trace = Time.now, '', "#{e.class}: #{e.message}",
+				'  ' + e.backtrace.collect{|ln|
+					@@_ENOTIFY[:basedir] ?
+						ln.start_with?(@@_ENOTIFY[:basedir]) ?
+							ln[basedir_length..-1] :
+							ln :
+						ln
+				}.join("\n  ")
+			if @@_REDIS
+				data = {}
+				['GET', 'POST'].each{|method|
+					d = request.send(method) and !d.empty? and data[method] = d }
+				report = @@_REDIS.report? time, err, trace, data
+				return if report.kind_of? Float # already reported
 			end
-			if request.POST.empty?
-				post_data = 'No POST data.'
-			else
-				post_data, maxlen = "POST data:", 0
-				request.POST.each_key{|k| maxlen = k.length + 1 if k.length >= maxlen }
-				request.POST.sort_by{|k, v| k.to_s }.each{|key, val|
-					post_data += sprintf "\n  %-#{maxlen}s= %s", key, val.inspect
-				}
-			end
+			get_data, post_data =
+				Format.format('GET', request.GET), Format.format('POST', request.POST)
 			if @@_ENOTIFY[:notify]
 				from, to, prefix = *@@_ENOTIFY.values_at(:from, :rcpt, :prefix)
 				msg =
 					"From: #{from}\r\n" +
 					"To: #{to.kind_of?(Array) ? to.join(', ') : to}\r\n" +
-					"Date: #{Time.now}\r\n" +
-					"Subject: #{prefix} #{e.class}: #{e.message}\r\n\r\n" +
-					"#{tstamp} - #{e.class}: #{e.message}\n\n" +
-					"Trace:\n#{trace}\n\n#{get_data}\n\n#{post_data}\n\n" +
-					"-- \nsinatra-enotify mailer.\n\n"
+					"Date: #{time}\r\n" +
+					"Subject: #{prefix} #{err}\r\n\r\n" +
+					"#{time.strftime '%Y-%m-%d %H:%M:%S.%L'} - #{err}\n\n" +
+					"Trace:\n#{trace}\n\n#{get_data}\n\n#{post_data}#{report}\n\n" +
+					"-- \nsinatra-enotify exception mailer.\n\n"
 				Net::SMTP.start('localhost'){|smtp| smtp.send_message(msg, from, to) }
 			else
-				warn "#{tstamp} - #{e.class}: #{e.message}\n\nTrace:\n#{trace}\n\n" +
-					"#{get_data}\n\n#{post_data}"
+				warn "#{time.strftime '%Y-%m-%d %H:%M:%S.%L'} - #{err}\n\n" +
+					"Trace:\n#{trace}\n\n#{get_data}\n\n#{post_data}#{report}"
 			end
 		end
 
-	end
+	end # ENotify
 
-end
+end # Sinatra
 
