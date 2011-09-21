@@ -6,9 +6,9 @@ sinatra-enotify is simple exception notification extension module to sinatra.
 
 ## Requirements:
 
-Optional redis exception cache added in __0.0.2__ requires
-`redis` and `yajl-ruby` gems. These are not defined as dependency of
-`sinatra-enotify` to leave the plain version available.
+Optional redis exception cache requires `redis` and `yajl-ruby` gems.
+These are not defined as dependency of `sinatra-enotify` to leave the plain
+version available.
 
 ## Usage:
 
@@ -50,8 +50,8 @@ To return to previous configuration just set `:ignore` back to false.
 
 #### Configure redis exception cache:
 
-New in version __0.0.2__: It is possible to configure redis exception cache in
-order to report the same exceptions only once per defined time period at most.
+Since __0.0.2__ it is possible to configure redis exception cache in order to
+report the same exceptions only once per defined time period at most.
 
 The following example contains default values therefore all of them are optional:
 
@@ -70,12 +70,12 @@ The following example contains default values therefore all of them are optional
   in the exception cache are kept as valid
     + this is the minimal period between the two reports of the same exceptions
   (with the same trace)
-  + `:limit` limits the number of the most recent exceptions with non-empty
-  GET/POST data to be included in the notification
+  + `:limit` limits the number of the most recent exceptions with unique
+  non-empty GET/POST data to be included in the notification
 
 To disable the redis exception cache just set the `:redis` back to `nil`.
 
-### Include enotify in your code
+### Include enotify in your code:
 
 To include the notification just cover the code in your request blocks
 with `begin`-`rescue`-`end` block. Example:
@@ -89,7 +89,14 @@ with `begin`-`rescue`-`end` block. Example:
       end
     end
 
-## License
+## Changelog:
+
++ __0.0.3__: only _unique_ GET/POST data combinations are included
+  in notifications with redis exception cache enabled
++ __0.0.2__: optional redis exception cache added
++ __0.0.1__: first revision of simple exception notifier
+
+## License:
 
 sinatra-enotify is copyright (c)2011 Jiri Nemecek, and released under the terms
 of the MIT license. See the LICENSE file for the gory details.

@@ -22,8 +22,8 @@ module Sinatra
 			# dbid    - specify redis database index (0)
 			# flush   - flush the database during the initialization (false)
 			# expire  - specify expiration of recorded exceptions in seconds (3600)
-			# limit   - specify default limit of non-empty unexpired GET/POST data
-			#           to be included in the notification (100)
+			# limit   - specify default limit of unique non-empty unexpired GET/POST
+			#           data to be included in the notification (100)
 			def initialize o={}
 				@r = Redis.new(
 						:host => o[:host] || '127.0.0.1', :port => o[:port] || 6379)
@@ -55,7 +55,7 @@ module Sinatra
 			# 3. if last_report is recorded there is nothing to report:
 			#    return the last_report fractional epoch time as Float
 			# 4. record current epoch to last_report
-			# 5. assemble up-to limit non-empty combinations of GET/POST data
+			# 5. assemble up-to limit non-empty unique combinations of GET/POST data
 			# 6. return String of assembled GET/POST data combinations
 			#    to be included in the notifications
 			# data = {'GET' => {get data}, 'POST' => {post data}}
@@ -72,7 +72,7 @@ module Sinatra
 					@r.hset doc, 'last_report', curr_epoch
 					break if @r.exec
 				} # this should prevent other processes to report again
-				added, arr = [], @r.hkeys(doc)
+				added, uniq_data, arr = [], {}, @r.hkeys(doc)
 				arr.delete 'last_report'
 				arr.delete curr_epoch
 				return '' if arr.empty? # nothing to add to the report
@@ -80,15 +80,19 @@ module Sinatra
 						"\n\nThe same exception occured %u times during last %u secs.",
 						arr.length, @exp
 				arr.reverse_each{|epoch|
-					d = @r.hget doc, epoch
-					d = Yajl::Parser.parse d if d
-					added.push([epoch, d])
-					last if limit == added.length
+					if d = @r.hget(doc, epoch)
+						d = Yajl::Parser.parse d
+						d == data || uniq_data[d] ? next : (uniq_data[d] = 1)
+						added.push([epoch, d])
+						last if limit == added.length
+					end
 				}
-				return s + "\nNone of those contained non-empty GET/POST data." \
+				return s +
+						"\nNone of those contained different non-empty GET/POST data." \
 					if added.empty?
 				# add the assembled data
-				s += sprintf "\n\nNon-empty GET/POST data of %s most recent one%s:",
+				s += sprintf \
+						"\n\nUnique non-empty GET/POST data of %s most recent one%s:",
 						*(added.length == 1 ? ['the', ''] : ["#{added.length}", 's'])
 				added.each{|d|
 					s += sprintf "\n\nTime: %s\n\n%s\n\n%s",
