@@ -106,7 +106,7 @@ module Sinatra
 				msg =
 					"From: #{from}\r\n" +
 					"To: #{to.kind_of?(Array) ? to.join(', ') : to}\r\n" +
-					"Date: #{time}\r\n" +
+					"Date: #{time.strftime '%a, %d %b %y %T %z'}\r\n" +
 					"Subject: #{prefix} #{err}\r\n\r\n" +
 					"#{time.strftime '%Y-%m-%d %H:%M:%S.%L'} - #{err}\n\n" +
 					"Trace:\n#{trace}\n\n#{get_data}\n\n#{post_data}#{report}\n\n" +

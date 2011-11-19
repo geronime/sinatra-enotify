@@ -91,6 +91,7 @@ with `begin`-`rescue`-`end` block. Example:
 
 ## Changelog:
 
++ __0.0.4__: e-mails with standard date format in header
 + __0.0.3__: only _unique_ GET/POST data combinations are included
   in notifications with redis exception cache enabled
 + __0.0.2__: optional redis exception cache added
@@ -100,5 +101,4 @@ with `begin`-`rescue`-`end` block. Example:
 
 sinatra-enotify is copyright (c)2011 Jiri Nemecek, and released under the terms
 of the MIT license. See the LICENSE file for the gory details.
-
 
