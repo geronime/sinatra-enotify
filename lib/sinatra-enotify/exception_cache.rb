@@ -19,15 +19,21 @@ module Sinatra
 			# available options and defaults:
 			# host
 			# port    - specify host/port where redis is running (127.0.0.1:6379)
+			# db      - specify redbis database name (for redbis usage) or
 			# dbid    - specify redis database index (0)
 			# flush   - flush the database during the initialization (false)
 			# expire  - specify expiration of recorded exceptions in seconds (3600)
 			# limit   - specify default limit of unique non-empty unexpired GET/POST
 			#           data to be included in the notification (100)
 			def initialize o={}
-				@r = Redis.new(
-						:host => o[:host] || '127.0.0.1', :port => o[:port] || 6379)
-				@r.select o[:dbid] if o[:dbid]
+				ropts = {:host => o[:host] || '127.0.0.1', :port => o[:port] || 6379}
+				if o[:db] # redbis usage
+					require 'redbis'
+					@r = ReDBis.new ropts.merge({:db => o[:db], :create => true})
+				else
+					@r = Redis.new ropts
+					@r.select o[:dbid] if o[:dbid]
+				end
 				@r.flushdb if o[:flush]
 				@exp = o[:expire] ? o[:expire].to_i : 3600
 				@limit = o[:limit] ? o[:limit].to_i : 100

@@ -66,6 +66,8 @@ The following example contains default values therefore all of them are optional
     })
 
   + options `:host`, `:port` and `:dbid` do not need any explanation
+  + option `:db` takes precedence to `:dbid` and specifies database name for
+  [ReDBis wrapper] (https://github.com/geronime/redbis) usage (new in __0.0.5__)
   + `:expire` specifies the time period in seconds for which the data
   in the exception cache are kept as valid
     + this is the minimal period between the two reports of the same exceptions
@@ -91,6 +93,8 @@ with `begin`-`rescue`-`end` block. Example:
 
 ## Changelog:
 
++ __0.0.5__: redis exception cache accepts :db option for
+  [ReDBis wrapper] (https://github.com/geronime/redbis)
 + __0.0.4__: e-mails with standard date format in header
 + __0.0.3__: only _unique_ GET/POST data combinations are included
   in notifications with redis exception cache enabled
