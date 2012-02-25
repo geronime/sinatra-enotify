@@ -67,16 +67,23 @@ module Sinatra
 					require 'sinatra-enotify/exception_cache'
 					throw 'Hash expected for defined :redis option!' \
 						unless opts[:redis].kind_of? Hash
-					@@_REDIS = ExceptionCache.new opts[:redis]
+					@@_ECACHE_ENABLED = true
+					@@_ECACHE = ExceptionCache.new opts[:redis]
+					  # only to test the connection
+					@@_ECACHE_OPTS = opts[:redis].reject{|opt| opt == :flush }
+					@@_ECACHE = nil # to be reconnected in the first request
 				else
-					@@_REDIS = nil
+					@@_ECACHE_ENABLED = false
 				end
 			end
 			@@_ENOTIFY = o
 		end
 
 		def ecache_cleanup
-			@@_REDIS.cleanup if defined? @@_REDIS && @@_REDIS
+			if @@_ECACHE_ENABLED
+				@@_ECACHE = ExceptionCache.new(@@_ECACHE_OPTS) unless @@_ECACHE
+				@@_ECACHE.cleanup
+			end
 		end
 
 		# Report exception e.
@@ -92,11 +99,12 @@ module Sinatra
 							ln :
 						ln
 				}.join("\n  ")
-			if @@_REDIS
+			if @@_ECACHE_ENABLED
+				@@_ECACHE = ExceptionCache.new(@@_ECACHE_OPTS) unless @@_ECACHE
 				data = {}
 				['GET', 'POST'].each{|method|
 					d = request.send(method) and !d.empty? and data[method] = d }
-				report = @@_REDIS.report? time, err, trace, data
+				report = @@_ECACHE.report? time, err, trace, data
 				return if report.kind_of? Float # already reported
 			end
 			get_data, post_data =

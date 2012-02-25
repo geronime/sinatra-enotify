@@ -77,6 +77,12 @@ The following example contains default values therefore all of them are optional
 
 To disable the redis exception cache just set the `:redis` back to `nil`.
 
+__NOTE__: In __0.0.6__ a possible redis connection race condition is treated.
+Use of sinatra-enotify in `rainbows`-based solutions with `preload_app=true`,
+multiple workers used and `configure_enotify` done in the preload part
+of the sinatra application could lead to redis connection race condition.
+It is important that each worker has its own redis connection.
+
 ### Include enotify in your code:
 
 To include the notification just cover the code in your request blocks
@@ -93,6 +99,7 @@ with `begin`-`rescue`-`end` block. Example:
 
 ## Changelog:
 
++ __0.0.6__: redis connection is reinitialized upon first cache request
 + __0.0.5__: redis exception cache accepts :db option for
   [ReDBis wrapper] (https://github.com/geronime/redbis)
 + __0.0.4__: e-mails with standard date format in header
