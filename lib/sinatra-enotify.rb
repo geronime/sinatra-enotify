@@ -86,19 +86,21 @@ module Sinatra
 			end
 		end
 
-		# Report exception e.
+		# Report exception/error e.
 		def enotify e
 			throw 'Sinatra::ENotify not configured!' unless defined? @@_ENOTIFY
 			return if @@_ENOTIFY[:ignore]
 			basedir_length = @@_ENOTIFY[:basedir].length + 1 if @@_ENOTIFY[:basedir]
-			time, report, err, trace = Time.now, '', "#{e.class}: #{e.message}",
-				'  ' + e.backtrace.collect{|ln|
-					@@_ENOTIFY[:basedir] ?
-						ln.start_with?(@@_ENOTIFY[:basedir]) ?
-							ln[basedir_length..-1] :
-							ln :
-						ln
-				}.join("\n  ")
+			time, report = Time.now, ''
+			err = e.kind_of?(String) ? e.to_s : "#{e.class}: #{e.message}"
+			trace = '  ' +
+				(e.kind_of?(String) ? Kernel.caller : e.backtrace).collect{|ln|
+						@@_ENOTIFY[:basedir] ?
+							ln.start_with?(@@_ENOTIFY[:basedir]) ?
+								ln[basedir_length..-1] :
+								ln :
+							ln
+					}.join("\n  ")
 			if @@_ECACHE_ENABLED
 				@@_ECACHE = ExceptionCache.new(@@_ECACHE_OPTS) unless @@_ECACHE
 				data = {}

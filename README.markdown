@@ -97,8 +97,13 @@ with `begin`-`rescue`-`end` block. Example:
       end
     end
 
+Or just use it to notify some string error (new in __0.0.7__):
+
+    enotify "Error message goes here."
+
 ## Changelog:
 
++ __0.0.7__: possibility to enotify simple error string message
 + __0.0.6__: redis connection is reinitialized upon first cache request
 + __0.0.5__: redis exception cache accepts :db option for
   [ReDBis wrapper] (https://github.com/geronime/redbis)
