@@ -1,7 +1,7 @@
 #encoding:utf-8
-require 'digest/md5'
+require 'digest/sha1'
 require 'redis'
-require 'yajl'
+require 'oj'
 
 require 'sinatra-enotify/format'
 
@@ -11,8 +11,12 @@ module Sinatra
 
 		class ExceptionCache
 
+			# name of the set containing all the exception keys
+			E_SET = 'Sinatra::ENotify::Exceptions'
+
 			# Data stored in the database - for each exception keep a document:
-			# document key = md5sum_of_error-md5sum_of_trace
+			# with key = sha1_of_error-sha1_of_trace
+			# and record this key in E_SET
 			# each document is a hash:
 			#   {last_report => epoch, epoch => [GET_data, POST_DATA],...}
 
@@ -43,15 +47,21 @@ module Sinatra
 			# key - clean data within specified exception key (all otherwise)
 			def cleanup key=nil
 				exp_epoch = Time.now.to_f - @exp
-				docs = key ? [key] : @r.keys('*')
+				docs = key ? [key] : @r.smembers(E_SET)
 				docs.each{|doc|
-					next unless @r.exists doc
+					unless @r.exists(doc) && @r.type(doc) == 'hash'
+						@r.srem E_SET, doc
+						next
+					end
 					last = @r.hget doc, 'last_report'
 					@r.hdel doc, 'last_report' if last && last.to_f < exp_epoch
 					arr = @r.hkeys doc
 					last = arr.delete 'last_report'
 					arr.each{|epoch| @r.hdel doc, epoch if epoch.to_f < exp_epoch }
-					@r.del doc if arr.empty? && !last
+					if arr.empty? && !last
+						@r.del doc
+						@r.srem E_SET, doc
+					end
 				}
 			end
 
@@ -82,26 +92,30 @@ module Sinatra
 				arr.delete 'last_report'
 				arr.delete curr_epoch
 				return '' if arr.empty? # nothing to add to the report
-				s = sprintf \
+				rslt = sprintf \
 						"\n\nThe same exception occured %u times during last %u secs.",
 						arr.length, @exp
 				arr.reverse_each{|epoch|
 					if d = @r.hget(doc, epoch)
-						d = Yajl::Parser.parse d
+						begin
+							d = Oj.load d
+						rescue SyntaxError => e
+							next # should not happen
+						end
 						d == data || uniq_data[d] ? next : (uniq_data[d] = 1)
 						added.push([epoch, d])
 						last if limit == added.length
 					end
 				}
-				return s +
+				return rslt +
 						"\nNone of those contained different non-empty GET/POST data." \
 					if added.empty?
 				# add the assembled data
-				s += sprintf \
+				rslt += sprintf \
 						"\n\nUnique non-empty GET/POST data of %s most recent one%s:",
 						*(added.length == 1 ? ['the', ''] : ["#{added.length}", 's'])
 				added.each{|d|
-					s += sprintf "\n\nTime: %s\n\n%s\n\n%s",
+					rslt += sprintf "\n\nTime: %s\n\n%s\n\n%s",
 							Time.at(d[0].to_f).strftime('%Y-%m-%d %H:%M:%S.%L'),
 							Sinatra::ENotify::Format.format('GET', d[1]['GET']),
 							Sinatra::ENotify::Format.format('POST', d[1]['POST'])
@@ -111,13 +125,14 @@ module Sinatra
 
 			private
 
-			# Compute document key - md5sum_of_error-md5sum_of_trace
+			# Compute document key - sha1sum_of_error-sha1sum_of_trace
 			def doc_key err, trace
-				Digest::MD5.hexdigest(err) + '-' + Digest::MD5.hexdigest(trace)
+				Digest::SHA1.hexdigest(err) + '-' + Digest::SHA1.hexdigest(trace)
 			end
 
 			def record time, doc, data={}
-				@r.hset doc, time, Yajl::Encoder.encode(data)
+				@r.hset doc, time, Oj.dump(data)
+				@r.sadd E_SET, doc
 			end
 
 		end # ExceptionCache

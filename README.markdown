@@ -6,7 +6,9 @@ sinatra-enotify is simple exception notification extension module to sinatra.
 
 ## Requirements:
 
-Optional redis exception cache requires `redis` and `yajl-ruby` gems.
+Optional redis exception cache requires `redis`
+(or [ReDBis wrapper] (https://github.com/geronime/redbis)) and `oj` gems;
+cleanup script requires `docopt`.
 These are not defined as dependency of `sinatra-enotify` to leave the plain
 version available.
 
@@ -83,6 +85,13 @@ multiple workers used and `configure_enotify` done in the preload part
 of the sinatra application could lead to redis connection race condition.
 It is important that each worker has its own redis connection.
 
+Since __0.0.8__ the general ecache cleanup is secure as the exception keys
+are stored in the digest hash and the `keys(*)` is no longer used.
+`Oj` gem is used for faster JSON serialization instead of `Yajl`.
+Command-line cleanup script for cronly execution is provided:
+
+    $ /path/to/sinatra/enotify/clean_ecache.rb --help
+
 ### Include enotify in your code:
 
 To include the notification just cover the code in your request blocks
@@ -103,6 +112,7 @@ Or just use it to notify some string error (new in __0.0.7__):
 
 ## Changelog:
 
++ __0.0.8__: `Yajl` to `Oj`, secured general ecache cleanup and cleanup script
 + __0.0.7__: possibility to enotify simple error string message
 + __0.0.6__: redis connection is reinitialized upon first cache request
 + __0.0.5__: redis exception cache accepts :db option for

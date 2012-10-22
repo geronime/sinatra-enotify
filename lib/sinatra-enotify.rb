@@ -114,6 +114,7 @@ module Sinatra
 			if @@_ENOTIFY[:notify]
 				from, to, prefix = *@@_ENOTIFY.values_at(:from, :rcpt, :prefix)
 				msg =
+					"Content-type: text/plain; charset=UTF-8\r\n" +
 					"From: #{from}\r\n" +
 					"To: #{to.kind_of?(Array) ? to.join(', ') : to}\r\n" +
 					"Date: #{time.strftime '%a, %d %b %y %T %z'}\r\n" +
