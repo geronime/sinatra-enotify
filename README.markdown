@@ -72,7 +72,7 @@ The following example contains default values therefore all of them are optional
   [ReDBis wrapper] (https://github.com/geronime/redbis) usage (new in __0.0.5__)
   + `:expire` specifies the time period in seconds for which the data
   in the exception cache are kept as valid
-    + this is the minimal period between the two reports of the same exceptions
+   + this is the minimal period between the two reports of the same exceptions
   (with the same trace)
   + `:limit` limits the number of the most recent exceptions with unique
   non-empty GET/POST data to be included in the notification
